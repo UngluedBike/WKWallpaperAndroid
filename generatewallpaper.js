@@ -1,14 +1,17 @@
-const headers = {"Authorization": "Bearer <WK API TOKEN HERE>"};
+const headers = {"Authorization": "Bearer " + local("api_key") };
 
 const cache_filename = "wk_wallpaper_data.json";
 
+const screen_resolution = local("screen_res").split('x');
+const screen_buffers = local("screen_buf").split(',').map(Number); // top, bottom, left, right
+
 const dimensions = {
-  width: 1418,
-  height: 3072,
-  top_buffer: 192 + 132,
-  bottom_buffer: 192 + 102,
-  left_buffer: 88,
-  right_buffer: 88,
+  width: screen_resolution[0],
+  height: screen_resolution[1],
+  top_buffer: screen_buffers[0],
+  bottom_buffer: screen_buffers[1],
+  left_buffer: screen_buffers[2],
+  right_buffer: screen_buffers[3]
 }
 
 const colors = [
@@ -25,8 +28,8 @@ const colors = [
 ]
 
 async function get_wk_data() {
-  //let fm = FileManager.local()
-  let path = "./wkcache/" + cache_filename //fm.joinPath(fm.cacheDirectory(), cache_filename)
+
+  let path = "./wkcache/" + cache_filename
 
 let override = false
 // override = true
@@ -56,7 +59,6 @@ let override = false
         url: url,
         headers : headers,
         success: function (response) {
-          //response = JSON.parse(jsonData);
           url = response.pages.next_url;
           response.data.forEach((new_kanji) => {
             kanji[new_kanji.data.characters] = new_kanji.id
@@ -64,15 +66,6 @@ let override = false
         },
         async: false
       });
-
-      // let request = new Request(url);
-      // request.headers = headers;
-      // let response = await request.loadJSON();
-      // url = response.pages.next_url;
-    
-      // response.data.forEach((new_kanji) => {
-      //   kanji[new_kanji.data.characters] = new_kanji.id
-      // });
     }
     
     url = 'https://api.wanikani.com/v2/assignments?subject-types=kanji'
@@ -86,7 +79,6 @@ let override = false
         url: url,
         headers : headers,
         success: function (response) {
-          //response = JSON.parse(jsonData);
           url = response.pages.next_url;     
           response.data.forEach((new_item) => {
             srs[new_item.data.subject_id] = new_item.data.srs_stage;
@@ -94,15 +86,6 @@ let override = false
         },
         async: false
       });
-
-      // let request = new Request(url);
-      // request.headers = headers;
-      // let response = await request.loadJSON();
-      // url = response.pages.next_url;
-      
-      // response.data.forEach((new_item) => {
-      //   srs[new_item.data.subject_id] = new_item.data.srs_stage;
-      // });
     }
     
     let wk_data = {
@@ -119,10 +102,10 @@ let override = false
     }
     
     writeFile(path, JSON.stringify(cache_data), false)
-    //await fm.writeString(path, JSON.stringify(cache_data))
+
     return cache_data
   } else {
-    //let cache_data = await JSON.parse(fm.readString(path))
+
     let cache_data = await JSON.parse(readFile(path))
   
     url = 'https://api.wanikani.com/v2/assignments?subject-types=kanji&updated_after=' + cache_data.updated_time
@@ -135,7 +118,6 @@ let override = false
         url: url,
         headers : headers,
         success: function (response) {
-          //response = JSON.parse(jsonData);
           url = response.pages.next_url;
       
           response.data.forEach((new_item) => {
@@ -153,28 +135,10 @@ let override = false
         async: false
       });
 
-
-      // let request = new Request(url);
-      // request.headers = headers;
-      // let response = await request.loadJSON();
-      // url = response.pages.next_url;
-      
-      // response.data.forEach((new_item) => {
-      //   let id = new_item.data.subject_id
-      //   let old_srs = cache_data.wk_data.srs[id]
-      //   let new_srs = new_item.data.srs_stage
-        
-      //   if(colors[old_srs] != colors[new_srs]) {
-      //     updated = true
-      //   }
-        
-      //   cache_data.wk_data.srs[id] = new_srs;
-      // });
     }
     
     cache_data.updated_time = new Date().toISOString()
     writeFile(path, JSON.stringify(cache_data), false)
-    //await fm.writeString(path, JSON.stringify(cache_data))
     
     if(!updated) {
       return
@@ -242,8 +206,8 @@ async function get_image_data(
 ) {
 
   let c = document.createElement('canvas');
-  c.width = 1440;
-  c.height = 3120;
+  c.width = dimensions.width;
+  c.height = dimensions.height;
 
   let ctx = c.getContext('2d');
   ctx.beginPath();
@@ -251,57 +215,45 @@ async function get_image_data(
   ctx.fillStyle = "black";
   ctx.fill();
 
-  ctx.fillStyle = "white";
-  ctx.font = '72px serif';
-  ctx.fillText('鉄緑一二鉄緑一二鉄緑一二', 100, 500);
+  ctx.font = data.image_params.s + 'px serif';
+  ctx.textAlign = "center";
+
+  
+  let cols = data.image_params.cols // Number of columns
+  let s = data.image_params.s // Size of each character.
+  let r = data.image_params.r
+  let l_buff = dimensions.left_buffer + data.image_params.x_offset
+  let t_buff = dimensions.top_buffer + data.image_params.y_offset
+  
+  let kanji = Object.keys(data.wk_data.kanji)
+  
+  for(let i = 0; i < kanji.length; i++) {
+
+    // Determines the coordinate of each kanji
+    let x = i % cols
+    let y = Math.floor(i / cols)
+    
+    // stores the current kanji
+    let k = kanji[i]
+
+    // Gets the id of the kanji to determine the current srs level.
+    let id = data.wk_data.kanji[k]
+    let srs = data.wk_data.srs[id] || 0
+
+    // stores the colour of the current kanji
+    let color = colors[srs]
+    ctx.fillStyle = "#" + color;
 
 
-  // let cx = new DrawContext()
-  // cx.size = new Size(dimensions.width, dimensions.height)
-  // cx.opaque = true
-  // cx.setFillColor(Color.black())
-  // cx.fill(new Rect(0, 0, dimensions.width, dimensions.height))
-  
-  // cx.setFont(Font.heavySystemFont(data.image_params.s))
-  // cx.setTextAlignedCenter()
-  
-  // let cols = data.image_params.cols
-  // let s = data.image_params.s
-  // let r = data.image_params.r
-  // let l_buff = dimensions.left_buffer + data.image_params.x_offset
-  // let t_buff = dimensions.top_buffer + data.image_params.y_offset
-  
-  // let kanji = Object.keys(data.wk_data.kanji)
-  
-  // for(let i = 0; i < kanji.length; i++) {
-  //   let x = i % data.image_params.cols
-  //   let y = Math.floor(i / data.image_params.cols)
-    
-  //   let k = kanji[i]
-  //   let id = data.wk_data.kanji[k]
-  //   let srs = data.wk_data.srs[id] || 0
-  //   let color = new Color(colors[srs])
-    
-  //   let rect = new Rect(
-  //     l_buff + x * s,
-  //     t_buff + y * s * r,
-  //     s,
-  //     s * r,
-  //   )
-    
-  //   cx.setTextColor(color)
-  //   cx.drawTextInRect(kanji[i], rect)
-  // }
-  
-  // let image = cx.getImage()
+    ctx.fillText(k, (l_buff + x * s) + (s/2), (t_buff + y * s * r) + (s/2));
+  }
   
   return c
 }
 
-
-
+// Startup code is enclosed in async delegate
+// Because tasker does not support async functions in main body
 (async() => {
-  console.log('before start');
 
   try {
   let data = await get_wk_data()
@@ -314,16 +266,9 @@ async function get_image_data(
     )
     
     setLocal("canvas_image", c.toDataURL());
-
-    // let raw_image = Data.fromPNG(image)
-    // let base64_image = raw_image.toBase64String()
-    //Script.setShortcutOutput(base64_image)
   }
-} finally {
-  //Script.complete()
-}
+  } finally {
+    exit();
+  }
   
-  console.log('after start');
-  
-  exit();
 })();
