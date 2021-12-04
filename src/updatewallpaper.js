@@ -215,7 +215,7 @@ async function get_image_data(
   ctx.fillStyle = "black";
   ctx.fill();
 
-  ctx.font = data.image_params.s + 'px serif';
+  ctx.font = data.image_params.s + 'px DroidSans';
   ctx.textAlign = "center";
 
   
